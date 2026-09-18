@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leslie's Kiosk</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Segoe UI', Arial, sans-serif; background:#fff8e1; color:#3e2723; }
+
+  .header { width:100%; min-height:160px;
+    background: linear-gradient(rgba(211,47,47,.45), rgba(218, 206, 206, 0.45)), url("BG.png");
+    background-size:cover; background-position:center; background-repeat:no-repeat;
+    color:white; display:flex; align-items:center; padding:25px 30px; }
+  .logo-area { display:flex; align-items:center; gap:15px; }
+  .logo-area img { width:70px; height:70px; border-radius:50%; border:3px solid #ffca28; background:white; object-fit:cover; }
+  .header h1 { margin:0; font-size:30px; font-weight:bold; color:white; }
+  .header p { margin:3px 0 0; color:#ffecb3; font-size:18px; }
+
+  .container { max-width:1200px; margin:20px auto; padding:0 15px; }
+
+  .category { background:white; padding:20px; border-radius:15px; margin-bottom:25px;
+    box-shadow:0 4px 12px rgba(0,0,0,.1); border-left:8px solid #d32f2f; }
+  .category h2 { color:#d32f2f; margin:0 0 20px; font-size:25px; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:18px; }
+
+  .card { border:1px solid #ffe082; border-radius:12px; overflow:hidden; background:#fffde7;
+    text-align:center; transition:transform .3s ease, box-shadow .3s ease; cursor:pointer; }
+  .card:hover { transform:scale(1.05); box-shadow:0 8px 18px rgba(0,0,0,.15); }
+  .card:focus-visible { outline:3px solid #d32f2f; outline-offset:2px; }
+  .card img { width:100%; height:170px; object-fit:cover; display:block; }
+  .card .info { padding:12px; }
+  .card .name { font-weight:bold; font-size:17px; color:#3e2723; }
+  .card .desc { font-size:12px; color:#6d4c41; margin:5px 0 8px; }
+  .card .price { color:#d32f2f; font-weight:bold; font-size:18px; }
+  .card .tap-hint { font-size:11px; color:#a1887f; margin-top:4px; }
+
+  /* ============ ORDER MODAL ============ */
+  .overlay { position:fixed; inset:0; background:rgba(62,39,35,.55); display:none;
+    align-items:center; justify-content:center; z-index:1000; padding:15px; }
+  .overlay.show { display:flex; }
+  .modal { background:#fffde7; border-radius:16px; max-width:380px; width:100%;
+    overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,.3); }
+  .modal img { width:100%; height:180px; object-fit:cover; display:block; }
+  .modal-body { padding:20px; }
+  .modal-body .name { font-size:20px; font-weight:bold; color:#3e2723; }
+  .modal-body .desc { font-size:13px; color:#6d4c41; margin:5px 0 10px; }
+  .modal-body .price { color:#d32f2f; font-weight:bold; font-size:18px; margin-bottom:15px; }
+  .qty-row { display:flex; align-items:center; justify-content:center; gap:15px; margin-bottom:18px; }
+  .qty-row button { width:38px; height:38px; border-radius:50%; border:none; background:#d32f2f;
+    color:white; font-size:20px; cursor:pointer; line-height:1; }
+  .qty-row button:hover { background:#b71c1c; }
+  .qty-row span { font-size:20px; font-weight:bold; min-width:24px; text-align:center; }
+  .modal-actions { display:flex; gap:10px; }
+  .modal-actions button { flex:1; padding:13px; border:none; border-radius:8px; font-weight:bold;
+    font-size:15px; cursor:pointer; transition:.2s; }
+  .btn-add { background:#ffca28; color:#3e2723; }
+  .btn-add:hover { background:#ffd54f; }
+  .btn-cancel { background:#efebe9; color:#3e2723; }
+  .btn-cancel:hover { background:#e0d9d5; }
+
+  /* ============ CART DRAWER ============ */
+  .cart-btn { position:fixed; bottom:22px; right:22px; background:#d32f2f; color:white;
+    border:none; border-radius:50px; padding:15px 20px; font-size:16px; font-weight:bold;
+    box-shadow:0 6px 16px rgba(0,0,0,.3); cursor:pointer; z-index:900; display:flex; gap:8px; align-items:center; }
+  .cart-btn:hover { background:#b71c1c; }
+  .cart-count { background:#ffca28; color:#3e2723; border-radius:50%; padding:2px 8px; font-size:13px; }
+
+  .drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; z-index:1000; }
+  .drawer-overlay.show { display:block; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:340px; max-width:90vw;
+    background:#fffde7; z-index:1001; transform:translateX(100%); transition:transform .3s ease;
+    display:flex; flex-direction:column; }
+  .drawer.show { transform:translateX(0); }
+  .drawer-head { background:#3e2723; color:white; padding:18px 20px; display:flex;
+    justify-content:space-between; align-items:center; }
+  .drawer-head h3 { margin:0; color:#ffca28; }
+  .drawer-head button { background:none; border:none; color:white; font-size:22px; cursor:pointer; }
+  .drawer-items { flex:1; overflow-y:auto; padding:15px 20px; }
+  .drawer-empty { color:#a1887f; text-align:center; margin-top:30px; font-size:14px; }
+  .drawer-item { display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid #ffe082; padding:10px 0; gap:8px; }
+  .drawer-item .di-name { font-weight:bold; font-size:14px; }
+  .drawer-item .di-sub { font-size:12px; color:#6d4c41; }
+  .di-qty { display:flex; align-items:center; gap:6px; }
+  .di-qty button { width:24px; height:24px; border-radius:50%; border:none; background:#efebe9;
+    cursor:pointer; font-size:14px; line-height:1; }
+  .di-remove { background:none; border:none; color:#d32f2f; font-size:13px; cursor:pointer;
+    text-decoration:underline; margin-left:6px; }
+  .drawer-foot { padding:15px 20px 20px; border-top:2px solid #ffe082; }
+  .table-field { margin-bottom:12px; }
+  .table-field label { display:block; font-size:12px; font-weight:bold; color:#6d4c41; margin-bottom:4px; }
+  .table-field input { width:100%; padding:10px; border-radius:8px; border:1px solid #ffe082;
+    font-size:15px; font-family:inherit; }
+  .table-field input:focus { outline:2px solid #d32f2f; }
+  .drawer-total { display:flex; justify-content:space-between; font-size:18px; font-weight:bold;
+    margin-bottom:12px; color:#d32f2f; }
+  .drawer-foot button { width:100%; padding:14px; background:#ffca28; color:#3e2723; font-weight:bold;
+    border:none; border-radius:8px; font-size:16px; cursor:pointer; }
+  .drawer-foot button:hover { background:#ffd54f; }
+
+  /* ============ RECEIPT MODAL ============ */
+  .receipt-overlay { position:fixed; inset:0; background:rgba(62,39,35,.6); display:none;
+    align-items:center; justify-content:center; z-index:1100; padding:15px; }
+  .receipt-overlay.show { display:flex; }
+  .receipt { background:#fffef7; border-radius:12px; max-width:340px; width:100%;
+    box-shadow:0 12px 30px rgba(0,0,0,.35); overflow:hidden; font-family:'Courier New', monospace; }
+  .receipt-head { background:#3e2723; color:#ffca28; text-align:center; padding:18px; }
+  .receipt-head .rname { font-weight:bold; font-size:18px; letter-spacing:1px; }
+  .receipt-head .rsub { font-size:11px; color:#ffecb3; margin-top:2px; }
+  .receipt-body { padding:18px 20px; color:#3e2723; }
+  .receipt-meta { font-size:13px; display:flex; justify-content:space-between; margin-bottom:4px; }
+  .receipt-divider { border-top:1px dashed #a1887f; margin:12px 0; }
+  .receipt-line { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+  .receipt-total { display:flex; justify-content:space-between; font-size:17px; font-weight:bold;
+    color:#d32f2f; margin-top:8px; }
+  .receipt-thanks { text-align:center; font-size:12px; color:#6d4c41; margin-top:14px; }
+  .receipt-foot { padding:0 20px 20px; display:flex; gap:10px; }
+  .receipt-foot button { flex:1; padding:12px; border:none; border-radius:8px; font-weight:bold;
+    font-size:14px; cursor:pointer; font-family:'Segoe UI', Arial, sans-serif; }
+  .btn-new { background:#efebe9; color:#3e2723; }
+  .btn-new:hover { background:#e0d9d5; }
+  .btn-close-receipt { background:#ffca28; color:#3e2723; }
+  .btn-close-receipt:hover { background:#ffd54f; }
+
+  .toast { position:fixed; bottom:90px; right:22px; background:#3e2723; color:#ffca28;
+    padding:12px 18px; border-radius:8px; font-size:14px; z-index:1002; opacity:0;
+    transform:translateY(10px); transition:.25s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateY(0); }
+
+  /* ============ FEEDBACK FORM ============ */
+  .feedback { background:#3e2723; color:white; padding:25px; border-radius:15px; margin-bottom:30px; }
+  .feedback h2 { color:#ffca28; margin:0 0 15px; }
+  .feedback input, .feedback select, .feedback textarea {
+    width:100%; padding:12px; margin:8px 0; border-radius:8px; border:none; outline:none;
+    font-family:inherit; font-size:15px; }
+  .feedback input:focus, .feedback select:focus, .feedback textarea:focus { outline:3px solid #ffca28; }
+  .feedback textarea { resize:vertical; }
+  .feedback button { width:100%; padding:15px; margin-top:8px; background:#ffca28; color:#3e2723;
+    font-weight:bold; border:none; border-radius:8px; font-size:18px; cursor:pointer; transition:.3s; }
+  .feedback button:hover { background:#ffd54f; transform:scale(1.02); }
+
+  @media (max-width:600px) {
+    .header { min-height:140px; padding:20px; }
+    .logo-area { gap:10px; }
+    .logo-area img { width:55px; height:55px; }
+    .header h1 { font-size:22px; }
+    .header p { font-size:13px; }
+    .container { padding:0 10px; }
+    .category { padding:15px; }
+    .category h2 { font-size:20px; }
+    .grid { grid-template-columns:1fr; }
+    .card img { height:200px; }
+    .drawer { width:100vw; max-width:100vw; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo-area">
+      <img src="LOGO.png" alt="Leslie's Kiosk Logo"
+        onerror="this.src='https://i.pinimg.com/736x/ea/69/dc/ea69dc6226db3d3690b1227d2d7956f2.jpg'">
+      <div>
+        <h1>LESLIE'S KIOSK</h1>
+        <p>Waffle • Frappe • Spaghetti - Sarap to the Bones!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="category">
+      <h2>🧇 WAFFLE Variations</h2>
+      <div class="grid">
+        <div class="card" tabindex="0" data-name="Biscoff Waffle" data-desc="Crunchy biscoff spread with caramel drizzle" data-price="95"
+          data-img="biscoff.jpg">
+          <img src="biscoff.jpg" alt="Biscoff Waffle" onerror="this.src='https://images.unsplash.com/photo-1562376552-0d160a2f238d'">
+          <div class="info">
+            <div class="name">Biscoff Waffle</div>
+            <div class="desc">Crunchy biscoff spread with caramel drizzle</div>
+            <div class="price">₱95</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Matcha Waffle" data-desc="Japanese matcha glaze, subtly sweet" data-price="105"
+          data-img="wafflematcha.jpg">
+          <img src="wafflematcha.jpg" alt="Matcha Waffle" onerror="this.src='https://images.unsplash.com/photo-1562376552-0d160a2f238d'">
+          <div class="info">
+            <div class="name">Matcha Waffle</div>
+            <div class="desc">Japanese matcha glaze, subtly sweet</div>
+            <div class="price">₱105</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Strawberry Waffle" data-desc="Fresh strawberries with whipped cream" data-price="110"
+          data-img="strawwaffle.jpg">
+          <img src="strawwaffle.jpg" alt="Strawberry Waffle" onerror="this.src='https://images.unsplash.com/photo-1562376552-0d160a2f238d'">
+          <div class="info">
+            <div class="name">Strawberry Waffle</div>
+            <div class="desc">Fresh strawberries with whipped cream</div>
+            <div class="price">₱110</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="category">
+      <h2>🥤 FRAPPE Variations</h2>
+      <div class="grid">
+        <div class="card" tabindex="0" data-name="Caramel Frappe" data-desc="Rich caramel blended to perfection" data-price="125"
+          data-img="caramelfrape.jpg">
+          <img src="caramelfrape.jpg" alt="Caramel Frappe" onerror="this.src='https://images.unsplash.com/photo-1461023058943-07fcbe16d735'">
+          <div class="info">
+            <div class="name">Caramel Frappe</div>
+            <div class="desc">Rich caramel blended to perfection</div>
+            <div class="price">₱125</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Strawberry Crème Brûlée Frappe" data-desc="Creamy strawberry with a caramelized top" data-price="135"
+          data-img="Strawberry-Crème-Brulee-Crop.jpg">
+          <img src="berryfrappe.jpg" alt="Strawberry Crème Brûlée Frappe" onerror="this.src='https://images.unsplash.com/photo-1485808191679-5f86510681a2'">
+          <div class="info">
+            <div class="name">Strawberry Crème Brûlée Frappe</div>
+            <div class="desc">Creamy strawberry with a caramelized top</div>
+            <div class="price">₱135</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Choco Frappe" data-desc="Classic blended chocolate, topped with whipped cream" data-price="130"
+          data-img="frape.jpg">
+          <img src="frape.jpg" alt="Choco Frappe" onerror="this.src='https://images.unsplash.com/photo-1579954115545-a95591f28bfc'">
+          <div class="info">
+            <div class="name">Choco Frappe</div>
+            <div class="desc">Classic blended chocolate, topped with whipped cream</div>
+            <div class="price">₱130</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="category">
+      <h2>🍝 SPAGHETTI Variations</h2>
+      <div class="grid">
+        <div class="card" tabindex="0" data-name="Bolognese Spaghetti" data-desc="Meaty tomato sauce, classic Italian style" data-price="75"
+          data-img="spaghettibolognese.jpg">
+          <img src="spaghettibolognese.jpg" alt="Bolognese Spaghetti" onerror="this.src='https://images.unsplash.com/photo-1551183053-bf91a1d81141'">
+          <div class="info">
+            <div class="name">Bolognese Spaghetti</div>
+            <div class="desc">Meaty tomato sauce, classic Italian style</div>
+            <div class="price">₱75</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Garlic Shrimp Spaghetti" data-desc="Garlic-sautéed shrimp in olive oil" data-price="95"
+          data-img="garlicshrimpapaghetti.jpg">
+          <img src="garlicshrimpapaghetti.jpg" alt="Garlic Shrimp Spaghetti" onerror="this.src='https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9'">
+          <div class="info">
+            <div class="name">Garlic Shrimp Spaghetti</div>
+            <div class="desc">Garlic-sautéed shrimp in olive oil</div>
+            <div class="price">₱95</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+        <div class="card" tabindex="0" data-name="Garlic Parmesan Chicken Pasta" data-desc="Creamy parmesan sauce with grilled chicken" data-price="99"
+          data-img="Garlic-Parmesan-Pasta-with-Chicken.jpg">
+          <img src="Garlic-Parmesan-Pasta-with-Chicken.jpg" alt="Garlic Parmesan Chicken Pasta" onerror="this.src='https://images.unsplash.com/photo-1473093295043-cdd812d0e601'">
+          <div class="info">
+            <div class="name">Garlic Parmesan Chicken Pasta</div>
+            <div class="desc">Creamy parmesan sauce with grilled chicken</div>
+            <div class="price">₱99</div>
+            <div class="tap-hint">Tap to order</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feedback">
+      <h2>Customer Feedback Form</h2>
+      <input type="text" placeholder="Full Name">
+      <input type="email" placeholder="Email Address">
+      <input type="tel" placeholder="Contact Number">
+      <select>
+        <option>What is your favorite category mo?</option>
+        <option>Waffle</option>
+        <option>Frappe</option>
+        <option>Spaghetti</option>
+      </select>
+      <input type="text" id="favoriteOrder" placeholder="Favorite Order mo?">
+      <textarea rows="4" placeholder="Feedback / Suggestion"></textarea>
+      <button type="button" id="submitFeedback">
+  SUBMIT FEEDBACK
+</button>
+    </div>
+
+  </div>
+
+  <!-- ORDER MODAL -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <img id="modalImg" src="" alt="">
+      <div class="modal-body">
+        <div class="name" id="modalName"></div>
+        <div class="desc" id="modalDesc"></div>
+        <div class="price" id="modalPrice"></div>
+        <div class="qty-row">
+          <button type="button" id="qtyMinus">−</button>
+          <span id="qtyVal">1</span>
+          <button type="button" id="qtyPlus">+</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" type="button" id="modalCancel">Cancel</button>
+          <button class="btn-add" type="button" id="modalAdd">Add to Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART BUTTON -->
+  <button class="cart-btn" id="cartBtn">🛒 Order <span class="cart-count" id="cartCount">0</span></button>
+
+  <!-- CART DRAWER -->
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h3>Your Order</h3>
+      <button type="button" id="drawerClose">×</button>
+    </div>
+    <div class="drawer-items" id="drawerItems"></div>
+    <div class="drawer-foot">
+      <div class="table-field">
+        <label for="tableNumber">Table Number</label>
+        <input type="number" id="tableNumber" placeholder="e.g. 4" min="1">
+      </div>
+      <div class="drawer-total"><span>Total</span><span id="drawerTotal">₱0</span></div>
+      <button type="button" id="placeOrderBtn">Place Order</button>
+    </div>
+  </div>
+
+  <!-- RECEIPT MODAL -->
+  <div class="receipt-overlay" id="receiptOverlay">
+    <div class="receipt">
+      <div class="receipt-head">
+        <div class="rname">LESLIE'S KIOSK</div>
+        <div class="rsub">Waffle • Frappe • Spaghetti</div>
+      </div>
+      <div class="receipt-body">
+        <div class="receipt-meta"><span>Order #</span><span id="rOrderNo"></span></div>
+        <div class="receipt-meta"><span>Table</span><span id="rTable"></span></div>
+        <div class="receipt-meta"><span>Date/Time</span><span id="rDate"></span></div>
+        <div class="receipt-divider"></div>
+        <div id="rItems"></div>
+        <div class="receipt-divider"></div>
+        <div class="receipt-total"><span>TOTAL</span><span id="rTotal"></span></div>
+        <div class="receipt-thanks">Salamat sa pag-order! 🧡</div>
+      </div>
+      <div class="receipt-foot">
+        <button type="button" class="btn-new" id="newOrderBtn">New Order</button>
+        <button type="button" class="btn-close-receipt" id="closeReceiptBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  let cart = [];
+  let currentItem = null;
+  let currentQty = 1;
+
+  const overlay = document.getElementById('overlay');
+  const drawer = document.getElementById('drawer');
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  const toast = document.getElementById('toast');
+
+  document.querySelectorAll('.card').forEach(card => {
+    const open = () => openModal(card.dataset);
+    card.addEventListener('click', open);
+    card.addEventListener('keypress', e => { if (e.key === 'Enter') open(); });
+  });
+
+  function openModal(data) {
+    currentItem = data;
+    currentQty = 1;
+    document.getElementById('modalImg').src = data.img;
+    document.getElementById('modalName').textContent = data.name;
+    document.getElementById('modalDesc').textContent = data.desc;
+    document.getElementById('modalPrice').textContent = '₱' + data.price;
+    document.getElementById('qtyVal').textContent = currentQty;
+    overlay.classList.add('show');
+  }
+  function closeModal() { overlay.classList.remove('show'); }
+
+  document.getElementById('qtyMinus').onclick = () => {
+    if (currentQty > 1) { currentQty--; document.getElementById('qtyVal').textContent = currentQty; }
+  };
+  document.getElementById('qtyPlus').onclick = () => {
+    currentQty++; document.getElementById('qtyVal').textContent = currentQty;
+  };
+  document.getElementById('modalCancel').onclick = closeModal;
+  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+
+  document.getElementById('modalAdd').onclick = () => {
+    const existing = cart.find(i => i.name === currentItem.name);
+    if (existing) { existing.qty += currentQty; }
+    else { cart.push({ name: currentItem.name, price: Number(currentItem.price), qty: currentQty }); }
+    renderCart();
+    showToast(currentItem.name + ' added to order!');
+    closeModal();
+  };
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  function renderCart() {
+    const itemsEl = document.getElementById('drawerItems');
+    const totalCount = cart.reduce((s, i) => s + i.qty, 0);
+    document.getElementById('cartCount').textContent = totalCount;
+
+    if (cart.length === 0) {
+      itemsEl.innerHTML = '<div class="drawer-empty">Wala pa lamang laman ang order mo.<br>Mag-tap sa isang product para magdagdag.</div>';
+    } else {
+      itemsEl.innerHTML = cart.map((item, idx) => `
+        <div class="drawer-item">
+          <div>
+            <div class="di-name">${item.name}</div>
+            <div class="di-sub">₱${item.price} x ${item.qty} = ₱${item.price * item.qty}</div>
+          </div>
+          <div class="di-qty">
+            <button type="button" onclick="changeQty(${idx}, -1)">−</button>
+            <span>${item.qty}</span>
+            <button type="button" onclick="changeQty(${idx}, 1)">+</button>
+            <button type="button" class="di-remove" onclick="removeItem(${idx})">alisin</button>
+          </div>
+        </div>`).join('');
+    }
+    const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+    document.getElementById('drawerTotal').textContent = '₱' + total;
+  }
+
+  function changeQty(idx, delta) {
+    cart[idx].qty += delta;
+    if (cart[idx].qty <= 0) cart.splice(idx, 1);
+    renderCart();
+  }
+  function removeItem(idx) { cart.splice(idx, 1); renderCart(); }
+
+  document.getElementById('cartBtn').onclick = () => {
+    drawer.classList.add('show');
+    drawerOverlay.classList.add('show');
+  };
+  function closeDrawer() {
+    drawer.classList.remove('show');
+    drawerOverlay.classList.remove('show');
+  }
+  document.getElementById('drawerClose').onclick = closeDrawer;
+  drawerOverlay.onclick = closeDrawer;
+
+  let orderCounter = 1001;
+  const receiptOverlay = document.getElementById('receiptOverlay');
+
+  document.getElementById('placeOrderBtn').onclick = () => {
+    if (cart.length === 0) { showToast('Wala ka pang order.'); return; }
+    const tableInput = document.getElementById('tableNumber');
+    const tableVal = tableInput.value.trim();
+    if (!tableVal) {
+      showToast('Ilagay muna ang Table Number.');
+      tableInput.focus();
+      return;
+    }
+
+    const orderNo = orderCounter++;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' ' + now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+    document.getElementById('rOrderNo').textContent = orderNo;
+    document.getElementById('rTable').textContent = tableVal;
+    document.getElementById('rDate').textContent = dateStr;
+    document.getElementById('rItems').innerHTML = cart.map(i => `
+      <div class="receipt-line">
+        <span>${i.name} x${i.qty}</span>
+        <span>₱${i.price * i.qty}</span>
+      </div>`).join('');
+    document.getElementById('rTotal').textContent = '₱' + total;
+
+    // also carry the order summary into the feedback form
+    document.getElementById('favoriteOrder').value = cart.map(i => `${i.name} x${i.qty}`).join(', ');
+
+    closeDrawer();
+    receiptOverlay.classList.add('show');
+  };
+
+  document.getElementById('closeReceiptBtn').onclick = () => {
+    receiptOverlay.classList.remove('show');
+  };
+  document.getElementById('newOrderBtn').onclick = () => {
+    cart = [];
+    document.getElementById('tableNumber').value = '';
+    renderCart();
+    receiptOverlay.classList.remove('show');
+  };
+  receiptOverlay.onclick = e => { if (e.target === receiptOverlay) receiptOverlay.classList.remove('show'); };
+
+  renderCart();
+  // SUBMIT FEEDBACK
+document.getElementById('submitFeedback').onclick = () => {
+  const feedbackBox = document.querySelector('.feedback');
+  const inputs = feedbackBox.querySelectorAll(
+    'input, select, textarea'
+  );
+
+  let empty = false;
+
+  inputs.forEach(input => {
+    if (!input.value.trim()) {
+      empty = true;
+    }
+  });
+
+  if (empty) {
+    showToast('Please complete all feedback fields.');
+    return;
+  }
+
+  showToast('Feedback submitted successfully!');
+
+  inputs.forEach(input => {
+    input.value = '';
+  });
+};
+
+renderCart();
+</script>
+
+</body>
+</html>
